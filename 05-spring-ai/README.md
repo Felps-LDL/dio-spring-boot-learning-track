@@ -79,6 +79,47 @@ Run the application and tests:
 ./gradlew test
 ```
 
+## Evolução: resumo de gastos (`summarize-transactions`)
+
+Nova tool que permite perguntar por voz coisas como *"quanto eu gastei no total?"* ou *"me dá um resumo dos meus gastos"*. A IA chama o caso de uso, que devolve a quantidade de transações e o valor total em reais, no geral e por categoria.
+
+O mesmo caso de uso atende a IA e o REST, mantendo a regra de negócio fora do controller:
+
+| Camada | Arquivo | O que mudou |
+| --- | --- | --- |
+| Domínio | `domain/TransactionRepository.java` | Novo método `findAll()` |
+| Aplicação | `application/SummarizeTransactionsUseCase.java` | Caso de uso com `@Tool(name = "summarize-transactions")` |
+| Aplicação | `application/output/TransactionSummaryOutput.java`, `CategorySummaryOutput.java` | Saída do resumo |
+| Infraestrutura | `persistence/repository/JpaTransactionRepository.java` | Implementação de `findAll()` |
+| Infraestrutura | `http/TransactionController.java` | Tool registrada no `ChatClient` e novo `GET /transactions/summary` |
+| Prompt | `resources/prompts/system-message.st` | Orienta o uso da tool e respostas curtas em reais |
+
+Os valores são guardados em centavos (`long`) e convertidos para reais só na saída, com `BigDecimal.valueOf(cents, 2)`, para evitar erros de arredondamento de `double` na soma.
+
+### Como testar
+
+```bash
+# testes unitários (não precisam de OpenAI nem de Docker)
+./gradlew test --tests 'dio.budgeting.application.*'
+
+# com a aplicação rodando
+curl -X POST localhost:8080/transactions -H "Content-Type: application/json" \
+  -d '{"description":"Mercado","category":"GROCERIES","amount":8000}'
+curl localhost:8080/transactions/summary
+# {"count":1,"total":80.0,"categories":[{"category":"GROCERIES","count":1,"total":80.0}]}
+
+# por voz (grave um áudio perguntando "quanto eu gastei no total?")
+curl -F "file=@pergunta.m4a" localhost:8080/transactions/ai -o resposta.mp3
+```
+
+## O que aprendi
+
+- Como conectar IA a uma aplicação real: a IA não mexe no banco, ela só chama os casos de uso que já existem através do `@Tool`.
+- Que a descrição da tool é importante, porque é por ela que a IA decide qual função chamar.
+- Como funciona o fluxo de voz: áudio vira texto, a IA entende o pedido e a resposta volta em áudio.
+- Que é melhor guardar dinheiro em centavos para evitar erros de arredondamento.
+- Que dá para testar a lógica sem chamar a OpenAI, usando um repositório falso nos testes.
+
 ## Notes
 
 - Educational final project focused on AI plus architectural discipline.
