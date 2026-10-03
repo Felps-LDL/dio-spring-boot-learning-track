@@ -6,6 +6,7 @@ import dio.budgeting.domain.TransactionRepository;
 import dio.budgeting.infrastructure.persistence.entity.TransactionEntity;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Repository
@@ -28,5 +29,12 @@ public class JpaTransactionRepository implements TransactionRepository {
                 .stream()
                 .map(TransactionEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public List<Transaction> findAll() {
+        var transactions = new ArrayList<Transaction>();
+        transactionEntityRepository.findAll().forEach(entity -> transactions.add(entity.toDomain()));
+        return transactions;
     }
 }
